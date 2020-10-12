@@ -14,6 +14,10 @@ namespace FollowerV2
 
         public DateTime SavedLastTimePortalUsedDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        public DateTime LastTimeWaypointUsedDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        public DateTime SavedLastTimeWaypointUsedDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         public DateTime LastTimeQuestItemPickupDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         public DateTime SavedLastTimeQuestItemPickupDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -25,6 +29,8 @@ namespace FollowerV2
         public int NormalItemId = 0;
 
         public ActionsEnum CurrentAction = ActionsEnum.Nothing;
+
+        public int WaypointLogicIterationCount = 0;
 
         public int PortalLogicIterationCount = 0;
 
@@ -44,6 +50,7 @@ namespace FollowerV2
             SavedCurrentPos = Vector3.Zero;
             SavedCurrentAreaHash = 0;
             PortalLogicIterationCount = 0;
+            WaypointLogicIterationCount = 0;
         }
     }
 
@@ -52,6 +59,7 @@ namespace FollowerV2
         Nothing,
         UsingEntrance,
         UsingPortal,
+        UsingWaypoint,
         PickingQuestItem,
         PickingNormalItem,
     }

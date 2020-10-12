@@ -48,6 +48,8 @@ namespace FollowerV2
 
         public DateTime LastTimePortalUsedDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        public DateTime LastTimeWaypointUsedDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         public DateTime LastTimeQuestItemPickupDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         public DateTime LastTimeNormalItemPickupDateTime { get; set; } = new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -79,6 +81,14 @@ namespace FollowerV2
 
             this.LastTimePortalUsedDateTime = DateTime.UtcNow;
             Task.Delay(_taskDelayMs).ContinueWith(t => LastTimePortalUsedDateTime = _emptyDateTime);
+        }
+
+        public void SetToUseWaypoint()
+        {
+            if (this.LastTimeWaypointUsedDateTime != _emptyDateTime) return;
+
+            this.LastTimeWaypointUsedDateTime = DateTime.UtcNow;
+            Task.Delay(_taskDelayMs).ContinueWith(t => LastTimeWaypointUsedDateTime = _emptyDateTime);
         }
 
         public void SetPickupQuestItem()

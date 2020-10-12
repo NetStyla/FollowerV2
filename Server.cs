@@ -23,6 +23,7 @@ namespace FollowerV2
             _httpListener.TimeoutManager.EntityBody = TimeSpan.FromSeconds(5);
 
             AddCurrentPrefix();
+            _httpListener.Start();
         }
 
         public void Listen()
@@ -47,24 +48,28 @@ namespace FollowerV2
 
             try
             {
-                // SYNC WORKING SERVER
-                HttpListenerContext context = _httpListener.GetContext();
-                HttpListenerRequest request = context.Request;
-                HttpListenerResponse response = context.Response;
-
-                string responseString = JsonConvert.SerializeObject(CreateNetworkActivityObject());
-
-                byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
-                response.ContentLength64 = buffer.Length;
-                System.IO.Stream output = response.OutputStream;
-                output.Write(buffer, 0, buffer.Length);
-                output.Close();
-                // SYNC WORKING SERVER ENDS
+                IAsyncResult result = _httpListener.BeginGetContext(new AsyncCallback(ListenerCallback), _httpListener);
             }
             finally
             {
                 _serverIsListening = false;
             }
+        }
+
+        private void ListenerCallback(IAsyncResult result)
+        {
+            HttpListener listener = (HttpListener)result.AsyncState;
+            HttpListenerContext context = listener.EndGetContext(result);
+            HttpListenerRequest request = context.Request;
+            HttpListenerResponse response = context.Response;
+
+            string responseString = JsonConvert.SerializeObject(CreateNetworkActivityObject());
+
+            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
+            response.ContentLength64 = buffer.Length;
+            System.IO.Stream output = response.OutputStream;
+            output.Write(buffer, 0, buffer.Length);
+            output.Close();
         }
 
         public void StartServer()

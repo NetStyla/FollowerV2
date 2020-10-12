@@ -61,6 +61,12 @@ namespace FollowerV2
             Core.ParallelRunner.Run(_serverCoroutine);
             Core.ParallelRunner.Run(_followerCoroutine);
 
+            // And pause them to allow other plugins to run
+            _nearbyPlayersUpdateCoroutine.Pause();
+            _networkRequestsCoroutine.Pause();
+            _serverCoroutine.Pause();
+            _followerCoroutine.Pause();
+
             GameController.LeftPanel.WantUse(() => true);
 
             return true;
@@ -210,6 +216,43 @@ namespace FollowerV2
                 }
             }
 
+            if (_nearbyPlayersUpdateCoroutine.IsDone)
+            {
+                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
+
+                if (firstOrDefault != null)
+                    _nearbyPlayersUpdateCoroutine = firstOrDefault;
+            }
+
+            if (_networkRequestsCoroutine.IsDone)
+            {
+                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
+
+                if (firstOrDefault != null)
+                    _networkRequestsCoroutine = firstOrDefault;
+            }
+
+            if (_serverCoroutine.IsDone)
+            {
+                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
+
+                if (firstOrDefault != null)
+                    _serverCoroutine = firstOrDefault;
+            }
+
+            if (_followerCoroutine.IsDone)
+            {
+                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
+
+                if (firstOrDefault != null)
+                    _followerCoroutine = firstOrDefault;
+            }
+
+            _nearbyPlayersUpdateCoroutine.Resume();
+            _networkRequestsCoroutine.Resume();
+            _serverCoroutine.Resume();
+            _followerCoroutine.Resume();
+
             return null;
         }
 
@@ -284,6 +327,7 @@ namespace FollowerV2
                     CreatePickingTargetedItemComposite(),
                     CreatePickingQuestItemComposite(),
                     CreateUsingPortalComposite(),
+                    CreateUsingWaypointComposite(),
                     CreateUsingEntranceComposite(),
                     CreateCombatComposite(),
 
@@ -464,6 +508,66 @@ namespace FollowerV2
                         foreach (var i in Enumerable.Range(0, 20))
                         {
                             if (GameController.IsLoading) break;
+                            Thread.Sleep(100);
+                        }
+
+                        if (GameController.IsLoading || HasAreaBeenChangedByAreaHash())
+                        {
+                            // We have changed the area
+                            _followerState.CurrentAction = ActionsEnum.Nothing;
+                            _followerState.ResetAreaChangingValues();
+                        }
+
+                        return TreeRoutine.TreeSharp.RunStatus.Success;
+                    })
+                )
+            );
+        }
+
+        private Composite CreateUsingWaypointComposite()
+        {
+            LogMsgWithVerboseDebug($"{nameof(CreateUsingWaypointComposite)} called");
+            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingWaypoint,
+                new Sequence(
+                    new TreeRoutine.TreeSharp.Action(x =>
+                    {
+                        Input.KeyUp(Settings.FollowerModeSettings.MoveHotkey.Value);
+
+                        _followerState.WaypointLogicIterationCount++;
+
+                        // Allow only 3 waypoint logic iterations
+                        if (_followerState.WaypointLogicIterationCount > 3)
+                        {
+                            _followerState.CurrentAction = ActionsEnum.Nothing;
+                            _followerState.ResetAreaChangingValues();
+
+                            return TreeRoutine.TreeSharp.RunStatus.Failure;
+                        }
+
+                        if (_followerState.SavedCurrentPos == Vector3.Zero || _followerState.SavedCurrentAreaHash == 0)
+                        {
+                            _followerState.SavedCurrentAreaHash = GameController.IngameState.Data.CurrentAreaHash;
+                        }
+
+                        Entity waypointEntity = GetEntitiesByEntityTypeAndSortByDistance(EntityType.Waypoint, GameController.Player).FirstOrDefault();
+                        if (waypointEntity == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
+
+                        // If waypoint entity is too far away stop the whole logic
+                        if (waypointEntity.Distance(GameController.Player) > 70)
+                        {
+                            return TreeRoutine.TreeSharp.RunStatus.Failure;
+                        }
+
+                        bool hovered = HoverToEntityAction(waypointEntity);
+
+                        if (!hovered) return TreeRoutine.TreeSharp.RunStatus.Failure;
+
+                        Mouse.LeftClick(10);
+
+                        // Wait up to 3 seconds for WorldMap to open
+                        foreach (var i in Enumerable.Range(0, 30))
+                        {
+                            if (GameController.Game.IngameState.IngameUi.WorldMap.IsVisible) break;
                             Thread.Sleep(100);
                         }
 
@@ -1081,7 +1185,8 @@ namespace FollowerV2
                 //_server.StartServer();
                 _server.Listen();
 
-                yield return new WaitTime(50);
+                // yield return new WaitTime(50);
+                yield return new WaitTime(200);
             }
         }
 
@@ -1264,6 +1369,7 @@ namespace FollowerV2
 
             _followerState.LastTimeEntranceUsedDateTime = follower.LastTimeEntranceUsedDateTime;
             _followerState.LastTimePortalUsedDateTime = follower.LastTimePortalUsedDateTime;
+            _followerState.LastTimeWaypointUsedDateTime = follower.LastTimeWaypointUsedDateTime;
             _followerState.LastTimeQuestItemPickupDateTime = follower.LastTimeQuestItemPickupDateTime;
             _followerState.LastTimeNormalItemPickupDateTime = follower.LastTimeNormalItemPickupDateTime;
             _followerState.LastTimeNormalItemPickupDateTime = follower.LastTimeNormalItemPickupDateTime;
@@ -1274,6 +1380,12 @@ namespace FollowerV2
             {
                 _followerState.SavedLastTimePortalUsedDateTime = _followerState.LastTimePortalUsedDateTime;
                 _followerState.CurrentAction = ActionsEnum.UsingPortal;
+            }
+
+            if (_followerState.LastTimeWaypointUsedDateTime != _emptyDateTime && _followerState.LastTimeWaypointUsedDateTime != _followerState.SavedLastTimeWaypointUsedDateTime)
+            {
+                _followerState.SavedLastTimeWaypointUsedDateTime = _followerState.LastTimeWaypointUsedDateTime;
+                _followerState.CurrentAction = ActionsEnum.UsingWaypoint;
             }
 
             if (_followerState.LastTimeEntranceUsedDateTime != _emptyDateTime && _followerState.LastTimeEntranceUsedDateTime != _followerState.SavedLastTimeEntranceUsedDateTime)
@@ -1389,6 +1501,11 @@ namespace FollowerV2
                     ImGui.TextUnformatted(" P");
                     ImGui.SameLine();
                 }
+                if (follower.LastTimeWaypointUsedDateTime != emptyDateTime)
+                {
+                    ImGui.TextUnformatted(" W");
+                    ImGui.SameLine();
+                }
                 if (follower.LastTimeQuestItemPickupDateTime != emptyDateTime)
                 {
                     ImGui.TextUnformatted(" Q");
@@ -1404,6 +1521,9 @@ namespace FollowerV2
 
                 ImGui.SameLine();
                 if (ImGui.Button($"P##{follower.FollowerName}")) follower.SetToUsePortal();
+
+                ImGui.SameLine();
+                if (ImGui.Button($"W##{follower.FollowerName}")) follower.SetToUseWaypoint();
 
                 ImGui.SameLine();
                 if (ImGui.Button($"QIPick##{follower.FollowerName}")) follower.SetPickupQuestItem();
@@ -1427,11 +1547,21 @@ namespace FollowerV2
             ImGui.SameLine();
             if (ImGui.Button("Portal##AllPortal")) followers.ForEach(f => f.SetToUsePortal());
             ImGui.SameLine();
+            if (ImGui.Button("Waypoint##AllWaypoint")) followers.ForEach(f => f.SetToUseWaypoint());
+            ImGui.SameLine();
             if (ImGui.Button("PickQuestItem##AllPickQuestItem")) followers.ForEach(f => f.SetPickupQuestItem());
             ImGui.Spacing();
 
             ImGui.Spacing();
             ImGui.End();
+        }
+
+        public override void OnPluginDestroyForHotReload()
+        {
+            _nearbyPlayersUpdateCoroutine.Done(true);
+            _networkRequestsCoroutine.Done(true);
+            _serverCoroutine.Done(true);
+            _followerCoroutine.Done(true);
         }
     }
 }
