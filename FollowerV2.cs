@@ -13,6 +13,7 @@ using SharpDX;
 using System.Net;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using ExileCore.PoEMemory;
 using ExileCore.Shared.Helpers;
@@ -28,8 +29,6 @@ namespace FollowerV2
     public class Follower : BaseSettingsPlugin<FollowerV2Settings>
     {
         private Coroutine _nearbyPlayersUpdateCoroutine;
-        private Coroutine _networkRequestsCoroutine;
-        private Coroutine _serverCoroutine;
         private Coroutine _followerCoroutine;
 
         public Composite Tree { get; set; }
@@ -40,7 +39,7 @@ namespace FollowerV2
 
         private int _networkRequestStatusRetries = 0;
 
-        private Server _server;
+        private Server _server = null;
 
         private FollowerState _followerState = new FollowerState();
 
@@ -50,21 +49,19 @@ namespace FollowerV2
         {
             Tree = CreateTree();
 
+            // Start network and server routines in a separate threads to not block if PoeHUD is in not focused
+            Task.Run(MainNetworkRequestsWork);
+            Task.Run(MainServerWork);
+
             _nearbyPlayersUpdateCoroutine = new Coroutine(UpdateNearbyPlayersWork(), this, "Update nearby players", true);
-            _networkRequestsCoroutine = new Coroutine(MainNetworkRequestsWork(), this, "Network requests coroutine", true);
-            _serverCoroutine = new Coroutine(MainServerWork(), this, "Server coroutine", true);
             _followerCoroutine = new Coroutine(MainFollowerWork(), this, "Follower coroutine", true);
 
             // Fire all coroutines
             Core.ParallelRunner.Run(_nearbyPlayersUpdateCoroutine);
-            Core.ParallelRunner.Run(_networkRequestsCoroutine);
-            Core.ParallelRunner.Run(_serverCoroutine);
             Core.ParallelRunner.Run(_followerCoroutine);
 
             // And pause them to allow other plugins to run
             _nearbyPlayersUpdateCoroutine.Pause();
-            _networkRequestsCoroutine.Pause();
-            _serverCoroutine.Pause();
             _followerCoroutine.Pause();
 
             GameController.LeftPanel.WantUse(() => true);
@@ -102,16 +99,6 @@ namespace FollowerV2
             _delayHelper.AddToDelayManager(nameof(SendPickupItemSignal), SendPickupItemSignal, 500);
 
             SetAllOnCallbacks();
-
-            try
-            {
-                _server = new Server(Settings);
-                _server.RestartServer();
-            }
-            catch (Exception e)
-            {
-                LogMsgWithDebug($"Initializing Server failed.\n{e.Message}\n{e.StackTrace}");
-            }
         }
 
         public override void Render()
@@ -224,22 +211,6 @@ namespace FollowerV2
                     _nearbyPlayersUpdateCoroutine = firstOrDefault;
             }
 
-            if (_networkRequestsCoroutine.IsDone)
-            {
-                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
-
-                if (firstOrDefault != null)
-                    _networkRequestsCoroutine = firstOrDefault;
-            }
-
-            if (_serverCoroutine.IsDone)
-            {
-                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
-
-                if (firstOrDefault != null)
-                    _serverCoroutine = firstOrDefault;
-            }
-
             if (_followerCoroutine.IsDone)
             {
                 var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
@@ -249,8 +220,6 @@ namespace FollowerV2
             }
 
             _nearbyPlayersUpdateCoroutine.Resume();
-            _networkRequestsCoroutine.Resume();
-            _serverCoroutine.Resume();
             _followerCoroutine.Resume();
 
             return null;
@@ -373,7 +342,7 @@ namespace FollowerV2
 
         private Composite CreatePickingQuestItemComposite()
         {
-            return new Decorator(x => ShouldPickupQuestItem(),
+            return new Decorator(x => ShouldPickupQuestItem() && IsFpsAboveThreshold(),
                 new Sequence(
                     new TreeRoutine.TreeSharp.Action(x =>
                         {
@@ -422,7 +391,7 @@ namespace FollowerV2
 
         private Composite CreatePickingTargetedItemComposite()
         {
-            return new Decorator(x => ShouldPickupNormalItem(),
+            return new Decorator(x => ShouldPickupNormalItem() && IsFpsAboveThreshold(),
                 new Sequence(
                     new TreeRoutine.TreeSharp.Action(x =>
                     {
@@ -466,7 +435,7 @@ namespace FollowerV2
         private Composite CreateUsingPortalComposite()
         {
             LogMsgWithVerboseDebug($"{nameof(CreateUsingPortalComposite)} called");
-            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingPortal,
+            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingPortal && IsFpsAboveThreshold(),
                 new Sequence(
                     new TreeRoutine.TreeSharp.Action(x =>
                     {
@@ -527,7 +496,7 @@ namespace FollowerV2
         private Composite CreateUsingWaypointComposite()
         {
             LogMsgWithVerboseDebug($"{nameof(CreateUsingWaypointComposite)} called");
-            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingWaypoint,
+            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingWaypoint && IsFpsAboveThreshold(),
                 new Sequence(
                     new TreeRoutine.TreeSharp.Action(x =>
                     {
@@ -587,7 +556,7 @@ namespace FollowerV2
         private Composite CreateUsingEntranceComposite()
         {
             LogMsgWithVerboseDebug($"{nameof(CreateUsingEntranceComposite)} called");
-            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingEntrance,
+            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingEntrance && IsFpsAboveThreshold(),
                 new Sequence(
                     new TreeRoutine.TreeSharp.Action(x =>
                     {
@@ -650,7 +619,7 @@ namespace FollowerV2
         {
             LogMsgWithVerboseDebug($"{nameof(CreateCombatComposite)} called");
 
-            return new Decorator(x => ShouldAttackMonsters(),
+            return new Decorator(x => ShouldAttackMonsters() && IsFpsAboveThreshold(),
                 new Sequence(
                     new TreeRoutine.TreeSharp.Action(x =>
                     {
@@ -697,7 +666,7 @@ namespace FollowerV2
         {
             LogMsgWithVerboseDebug($"{nameof(CreateLevelUpGemsComposite)} called");
 
-            return new Decorator(x => ShouldLevelUpGems(),
+            return new Decorator(x => ShouldLevelUpGems() && IsFpsAboveThreshold(),
                 new Sequence(
                     new TreeRoutine.TreeSharp.Action(x =>
                     {
@@ -869,6 +838,14 @@ namespace FollowerV2
             }
 
             return gemsToLevelUp;
+        }
+
+        private bool IsFpsAboveThreshold()
+        {
+            int currentFps = (int)GameController.IngameState.CurFps;
+            int threshold = Settings.FollowerModeSettings.MinimumFpsThreshold.Value;
+
+            return currentFps >= threshold;
         }
 
         private bool ShouldAttackMonsters()
@@ -1130,12 +1107,12 @@ namespace FollowerV2
             {
                 if (Settings.Profiles.Value != ProfilesEnum.Follower || !Settings.FollowerModeSettings.StartNetworkRequesting.Value)
                 {
-                    yield return new WaitTime(100);
+                    Thread.Sleep(100);
                     continue;
                 }
 
-                yield return DoFollowerNetworkActivityWork();
-                yield return new WaitTime(Settings.FollowerModeSettings.FollowerModeNetworkSettings.DelayBetweenRequests.Value);
+                DoFollowerNetworkActivityWork();
+                Thread.Sleep(Settings.FollowerModeSettings.FollowerModeNetworkSettings.DelayBetweenRequests.Value);
             }
         }
 
@@ -1176,17 +1153,28 @@ namespace FollowerV2
             {
                 if (Settings.Profiles.Value != ProfilesEnum.Leader || !Settings.LeaderModeSettings.StartServer.Value)
                 {
-                    yield return new WaitTime(100);
+                    Thread.Sleep(100);
                     continue;
+                }
+
+                if (_server == null)
+                {
+                    try
+                    {
+                        _server = new Server(Settings);
+                        _server.RestartServer();
+                    }
+                    catch (Exception e)
+                    {
+                        LogMsgWithDebug($"Initializing Server failed.\n{e.Message}\n{e.StackTrace}");
+                    }
                 }
 
                 LogMsgWithVerboseDebug("MainServerWork: Starting the server and listening");
 
-                //_server.StartServer();
                 _server.Listen();
 
-                // yield return new WaitTime(50);
-                yield return new WaitTime(200);
+                Thread.Sleep(200);
             }
         }
 
@@ -1285,7 +1273,7 @@ namespace FollowerV2
             Mouse.SetCursorPosHuman2(finalPos);
         }
 
-        private IEnumerator DoFollowerNetworkActivityWork()
+        private void DoFollowerNetworkActivityWork()
         {
             LogMsgWithVerboseDebug("DoFollowerNetworkActivityWork called");
 
@@ -1295,51 +1283,44 @@ namespace FollowerV2
             if (string.IsNullOrEmpty(url))
             {
                 LogMsgWithVerboseDebug("    url in DoFollowerNetworkActivityWork was null or empty");
-                yield break;
+                return;
+            }
+
+            if (!NetworkHelper.IsUrlAlive(url, timeoutMs))
+            {
+                LogMsgWithVerboseDebug("    url is not alive");
+                return;
             }
 
             if (_networkRequestStatusRetries > 5)
             {
                 _networkRequestStatus = NetworkRequestStatus.Finished;
+                _networkRequestStatusRetries = 0;
             }
 
             if (_networkRequestStatus == NetworkRequestStatus.Working)
             {
                 LogMsgWithVerboseDebug("    request has not been finished in DoFollowerNetworkActivityWork");
                 _networkRequestStatusRetries++;
-                yield break;
+                return;
             }
 
             _networkRequestStatus = NetworkRequestStatus.Working;
 
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            request.Method = "GET";
-            request.Timeout = timeoutMs;
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-
             try
             {
-                if (response.StatusCode == HttpStatusCode.OK)
-                {
-                    Stream stream = response.GetResponseStream();
-                    StreamReader reader = new StreamReader(stream);
-                    string reply = reader.ReadToEnd();
+                string reply = NetworkHelper.GetNetworkResponse(url, timeoutMs);
 
+                if (!String.IsNullOrEmpty(reply))
+                {
                     NetworkActivityObject networkActivityObject = JsonConvert.DeserializeObject<NetworkActivityObject>(reply);
                     ProcessNetworkActivityResponse(networkActivityObject);
-                }
-                else
-                {
-                    LogMsgWithVerboseDebug(
-                        $"Follower - tried to make a HTTP request to {url} but the return message was not successful");
                 }
             }
             finally
             {
                 _networkRequestStatus = NetworkRequestStatus.Finished;
             }
-
-            yield break;
         }
 
         private List<Entity> GetEntitiesByEntityTypeAndSortByDistance(EntityType entityType, Entity entity)
@@ -1361,6 +1342,7 @@ namespace FollowerV2
             Settings.FollowerModeSettings.FollowerShouldWork.Value = obj.FollowersShouldWork;
             Settings.FollowerModeSettings.LeaderName.Value = obj.LeaderName;
             Settings.FollowerModeSettings.LeaderProximityRadius.Value = obj.LeaderProximityRadius;
+            Settings.FollowerModeSettings.MinimumFpsThreshold.Value = obj.MinimumFpsThreshold;
 
             string selfName = GameController.EntityListWrapper.Player.GetComponent<Player>().PlayerName;
             var follower = obj.FollowerCommandSettings.FollowerCommandsDataSet.First(f => f.FollowerName == selfName);
@@ -1559,8 +1541,6 @@ namespace FollowerV2
         public override void OnPluginDestroyForHotReload()
         {
             _nearbyPlayersUpdateCoroutine.Done(true);
-            _networkRequestsCoroutine.Done(true);
-            _serverCoroutine.Done(true);
             _followerCoroutine.Done(true);
         }
     }
