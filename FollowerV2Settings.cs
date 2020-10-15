@@ -67,17 +67,17 @@ namespace FollowerV2
         {
             ResetToDefaultsButton.OnPressed += ResetAllSettingsToDefaults;
 
-            LeaderModeSettings.NewFollowerCommandClassSetting.UseNearbyPlayerNameButton.OnPressed += (() =>
-                {
-                    LeaderModeSettings.NewFollowerCommandClassSetting.FollowerName.Value = NearbyPlayers.Value;
-                    NearbyPlayers.Value = "";
-                });
-            LeaderModeSettings.NewFollowerCommandClassSetting.AddNewFollowerButton.OnPressed += (() =>
+            LeaderModeSettings.NewFollowerCommandClassSetting.UseNearbyPlayerNameButton.OnPressed += () =>
             {
-                string name = LeaderModeSettings.NewFollowerCommandClassSetting.FollowerName.Value;
+                LeaderModeSettings.NewFollowerCommandClassSetting.FollowerName.Value = NearbyPlayers.Value;
+                NearbyPlayers.Value = "";
+            };
+            LeaderModeSettings.NewFollowerCommandClassSetting.AddNewFollowerButton.OnPressed += () =>
+            {
+                var name = LeaderModeSettings.NewFollowerCommandClassSetting.FollowerName.Value;
                 LeaderModeSettings.FollowerCommandSetting.AddNewFollower(name);
                 LeaderModeSettings.NewFollowerCommandClassSetting.FollowerName.Value = "";
-            });
+            };
         }
 
         private void ResetAllSettingsToDefaults()
@@ -110,7 +110,7 @@ namespace FollowerV2
 
         public void DrawSettings()
         {
-            ImGuiTreeNodeFlags collapsingHeaderFlags = ImGuiTreeNodeFlags.CollapsingHeader;
+            var collapsingHeaderFlags = ImGuiTreeNodeFlags.CollapsingHeader;
 
             Debug.Value = ImGuiExtension.Checkbox("Debug", Debug);
             ImGui.Spacing();
@@ -150,7 +150,6 @@ namespace FollowerV2
             ImGui.Spacing();
 
             if (Profiles.Value == ProfilesEnum.Follower)
-            {
                 if (ImGui.TreeNodeEx("Follower Mode Settings", collapsingHeaderFlags))
                 {
                     FollowerModeSettings.FollowerModes.Value = ImGuiExtension.ComboBox("Follower modes", FollowerModeSettings.FollowerModes.Value, FollowerModeSettings.FollowerModes.Values);
@@ -174,10 +173,8 @@ namespace FollowerV2
                         if (NearbyPlayers.Values.Any())
                         {
                             NearbyPlayers.Value = ImGuiExtension.ComboBox("Use nearby member as leader", NearbyPlayers.Value, NearbyPlayers.Values);
-                            if (!String.IsNullOrEmpty(NearbyPlayers.Value))
-                            {
+                            if (!string.IsNullOrEmpty(NearbyPlayers.Value))
                                 if (ImGui.Button("Set as selected as leader")) FollowerModeSettings.UseNearbyPlayerAsLeaderButton.OnPressed();
-                            }
                         }
 
                         FollowerModeSettings.FollowerShouldWork.Value = ImGuiExtension.Checkbox("Start follower", FollowerModeSettings.FollowerShouldWork);
@@ -221,10 +218,8 @@ namespace FollowerV2
                     ImGui.Spacing();
                     ImGui.Separator();
                 }
-            }
 
             if (Profiles.Value == ProfilesEnum.Leader)
-            {
                 if (ImGui.TreeNodeEx("Leader Mode Settings", collapsingHeaderFlags))
                 {
                     FollowerModeSettings.FollowerModes.Value = ImGuiExtension.ComboBox("Follower modes", FollowerModeSettings.FollowerModes.Value, FollowerModeSettings.FollowerModes.Values);
@@ -286,12 +281,10 @@ namespace FollowerV2
                         }
 
                         if (LeaderModeSettings.FollowerCommandSetting.FollowerCommandsDataSet.Any())
-                        {
                             foreach (var follower in LeaderModeSettings.FollowerCommandSetting.FollowerCommandsDataSet)
-                            {
                                 if (ImGui.TreeNodeEx($"Follower \"{follower.FollowerName}\" settings##{follower.FollowerName}"))
                                 {
-                                    string imguiId = follower.FollowerName;
+                                    var imguiId = follower.FollowerName;
 
                                     ImGui.TextDisabled($"****** Other settings ******");
                                     ImGui.Spacing();
@@ -303,7 +296,7 @@ namespace FollowerV2
                                     ImGui.Spacing();
                                     ImGui.Spacing();
 
-                                    foreach (FollowerSkill skill in follower.FollowerSkills)
+                                    foreach (var skill in follower.FollowerSkills)
                                     {
                                         ImGui.TextDisabled($"------ Skill (id: {skill.Id}) ------");
 
@@ -334,10 +327,7 @@ namespace FollowerV2
 
                                     ImGui.Spacing();
                                 }
-                                
-                            }
-                        }
-                        
+
                         if (ImGui.TreeNodeEx("Advanced leader mode settings"))
                         {
                             ImGui.TextDisabled("Remember to restart the server if you have changed the port or the hostname");
@@ -362,7 +352,6 @@ namespace FollowerV2
                     ImGui.Separator();
                     //ImGui.TreePop();
                 }
-            }
         }
     }
 

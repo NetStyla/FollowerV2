@@ -50,8 +50,8 @@ namespace FollowerV2
             Tree = CreateTree();
 
             // Start network and server routines in a separate threads to not block if PoeHUD is in not focused
-            Task.Run(MainNetworkRequestsWork);
-            Task.Run(MainServerWork);
+            Task.Run(() => MainNetworkRequestsWork());
+            Task.Run(() => MainServerWork());
 
             _nearbyPlayersUpdateCoroutine = new Coroutine(UpdateNearbyPlayersWork(), this, "Update nearby players", true);
             _followerCoroutine = new Coroutine(MainFollowerWork(), this, "Follower coroutine", true);
@@ -322,7 +322,7 @@ namespace FollowerV2
                                 e.GetComponent<Player>().PlayerName == Settings.FollowerModeSettings.LeaderName.Value);
                         }
                         // Sometimes we can get "Collection was modified; enumeration operation may not execute" exception
-                        catch (Exception e)
+                        catch
                         {
                             return;
                         }
@@ -368,7 +368,7 @@ namespace FollowerV2
                                         return GameController.Files.BaseItemTypes.Translate(itemEntity.Path).ClassName == "QuestItem";
                                     });
                             }
-                            catch (Exception e) { }
+                            catch { }
 
                             if (entity == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
 
@@ -776,7 +776,7 @@ namespace FollowerV2
                 isEntityPresent = GameController.Entities.Any(e => e.Id == entityId);
 
             }
-            catch (Exception e) { }
+            catch { }
 
             return isEntityPresent;
         }
@@ -893,7 +893,7 @@ namespace FollowerV2
                     .Where(e => e.IsAlive && e.IsHostile && e.IsTargetable && e.IsValid)
                     .ToList();
             }
-            catch (Exception e) { }
+            catch { }
 
             return monstersList;
         }
@@ -1212,7 +1212,7 @@ namespace FollowerV2
                     .FirstOrDefault(x => x.GetComponent<Player>().PlayerName == leaderName);
             }
             // Sometimes we can get "Collection was modified; enumeration operation may not execute" exception
-            catch (Exception e)
+            catch
             {
                 return null;
             }
@@ -1321,6 +1321,8 @@ namespace FollowerV2
             {
                 _networkRequestStatus = NetworkRequestStatus.Finished;
             }
+
+            return;
         }
 
         private List<Entity> GetEntitiesByEntityTypeAndSortByDistance(EntityType entityType, Entity entity)
@@ -1345,7 +1347,7 @@ namespace FollowerV2
             Settings.FollowerModeSettings.MinimumFpsThreshold.Value = obj.MinimumFpsThreshold;
 
             string selfName = GameController.EntityListWrapper.Player.GetComponent<Player>().PlayerName;
-            var follower = obj.FollowerCommandSettings.FollowerCommandsDataSet.First(f => f.FollowerName == selfName);
+            var follower = obj.FollowerCommandSettings.FollowerCommandsDataSet.FirstOrDefault(f => f.FollowerName == selfName);
 
             if (follower == null) return;
 
