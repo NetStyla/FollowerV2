@@ -45,6 +45,7 @@ namespace FollowerV2
 
         public RangeNode<int> RandomClickOffset { get; set; } = new RangeNode<int>(10, 5, 100);
         public ButtonNode ResetToDefaultsButton { get; set; } = new ButtonNode();
+        public RangeNode<int> ThreadsWaitTime { get; set; } = new RangeNode<int>(200, 50, 1000);
 
         public ListNode NearbyPlayers { get; set; } = new ListNode { Values = new List<string>(), Value = "" };
 
@@ -132,6 +133,7 @@ namespace FollowerV2
             ImGui.Spacing();
             RandomClickOffset.Value = ImGuiExtension.IntSlider("Random click offset", RandomClickOffset);
             ImGuiExtension.ToolTipWithText("(?)", "Will randomly offset X and Y coords by - or + of this value");
+            ThreadsWaitTime.Value = ImGuiExtension.IntSlider("Leader and follower threads sleep values", ThreadsWaitTime);
 
             ImGui.Separator();
             ImGui.Spacing();

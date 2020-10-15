@@ -1141,7 +1141,7 @@ namespace FollowerV2
                     Tree.Start(null);
                 }
 
-                yield return new WaitTime(50);
+                yield return new WaitTime(Settings.ThreadsWaitTime);
             }
         }
 
@@ -1174,7 +1174,7 @@ namespace FollowerV2
 
                 _server.Listen();
 
-                Thread.Sleep(200);
+                Thread.Sleep(Settings.ThreadsWaitTime);
             }
         }
 
