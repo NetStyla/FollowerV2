@@ -90,12 +90,21 @@ namespace FollowerV2
             RandomClickOffset.Value = 10;
             NearbyPlayers.Value = "";
 
+            FollowerCommandsImguiSettings.ShowWindow.Value = true;
+            FollowerCommandsImguiSettings.LockPanel.Value = false;
+            FollowerCommandsImguiSettings.NoResize.Value = false;
+
+            FollowerModeSettings.FollowerShouldWork.Value = false;
             FollowerModeSettings.LeaderName.Value = "";
             FollowerModeSettings.FollowerUseCombat.Value = false;
             FollowerModeSettings.FollowerModes.Value = FollowerNetworkActivityModeEnum.Local;
             FollowerModeSettings.LeaderProximityRadius.Value = 100;
             FollowerModeSettings.StartNetworkRequesting.Value = false;
             FollowerModeSettings.StartNetworkRequestingHotkey.Value = Keys.F3;
+            FollowerModeSettings.MoveHotkey.Value = Keys.T;
+            FollowerModeSettings.MoveLogicCooldown.Value = 50;
+            FollowerModeSettings.MinimumFpsThreshold.Value = 5;
+
             FollowerModeSettings.FollowerModeNetworkSettings.Url.Value = "";
             FollowerModeSettings.FollowerModeNetworkSettings.DelayBetweenRequests.Value = 1000;
             FollowerModeSettings.FollowerModeNetworkSettings.RequestTimeoutMs.Value = 3000;
@@ -103,9 +112,14 @@ namespace FollowerV2
             LeaderModeSettings.LeaderNameToPropagate.Value = "";
             LeaderModeSettings.ServerHostname.Value = "localhost";
             LeaderModeSettings.ServerPort.Value = "4412";
+            LeaderModeSettings.StartServer.Value = false;
             LeaderModeSettings.PropagateWorkingOfFollowers.Value = false;
             LeaderModeSettings.PropagateWorkingOfFollowersHotkey.Value = Keys.F4;
             LeaderModeSettings.LeaderProximityRadiusToPropagate.Value = 100;
+            LeaderModeSettings.FollowerCommandSetting = new FollowerCommandSetting();
+            LeaderModeSettings.MinimumFpsThresholdToPropagate.Value = 5;
+
+            LeaderModeSettings.NewFollowerCommandClassSetting.FollowerName.Value = "";
         }
 
         public void DrawSettings()
@@ -298,27 +312,29 @@ namespace FollowerV2
 
                                     foreach (var skill in follower.FollowerSkills)
                                     {
+                                        string skillId = imguiId + skill.Id;
+
                                         ImGui.TextDisabled($"------ Skill (id: {skill.Id}) ------");
 
-                                        skill.Enable = ImGuiExtension.Checkbox($"Enable##{imguiId}", skill.Enable);
+                                        skill.Enable = ImGuiExtension.Checkbox($"Enable##{skillId}", skill.Enable);
                                         ImGui.SameLine();
                                         ImGui.TextDisabled("    ");
                                         ImGui.SameLine();
-                                        if (ImGui.Button($"Remove##{imguiId}")) follower.RemoveSkill(skill.Id);
+                                        if (ImGui.Button($"Remove##{skillId}")) follower.RemoveSkill(skill.Id);
 
                                         ImGui.Spacing();
-                                        skill.Hotkey = ImGuiExtension.HotkeySelector($"Hotkey: {skill.Hotkey}##{imguiId}", skill.Hotkey);
+                                        skill.Hotkey = ImGuiExtension.HotkeySelector($"Hotkey: {skill.Hotkey}##{skillId}", skill.Hotkey);
                                         ImGui.Spacing();
-                                        ImGui.SliderInt($"Priority##{imguiId}", ref skill.Priority, 1, 5);
+                                        ImGui.SliderInt($"Priority##{skillId}", ref skill.Priority, 1, 5);
                                         ImGui.Spacing();
-                                        skill.IsMovingSkill = ImGuiExtension.Checkbox($"Is moving skill##{imguiId}", skill.IsMovingSkill);
+                                        skill.IsMovingSkill = ImGuiExtension.Checkbox($"Is moving skill##{skillId}", skill.IsMovingSkill);
                                         ImGui.Spacing();
-                                        ImGui.SliderInt($"Skill cooldown in ms##{imguiId}", ref skill.CooldownMs, 100, 10000);
+                                        ImGui.SliderInt($"Skill cooldown in ms##{skillId}", ref skill.CooldownMs, 100, 10000);
                                         ImGui.Spacing();
 
                                         if (!skill.IsMovingSkill)
                                         {
-                                            ImGui.SliderInt($"Max range to monsters##{imguiId}", ref skill.MaxRangeToMonsters, 10, 200);
+                                            ImGui.SliderInt($"Max range to monsters##{skillId}", ref skill.MaxRangeToMonsters, 10, 200);
                                             ImGui.Spacing();
                                         }
                                     }
