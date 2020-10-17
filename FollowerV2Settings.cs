@@ -88,6 +88,7 @@ namespace FollowerV2
             DebugGenerateOnHoverEvents.Value = Keys.L;
             Profiles.Value = ProfilesEnum.Disable;
             RandomClickOffset.Value = 10;
+            ThreadsWaitTime.Value = 200;
             NearbyPlayers.Value = "";
 
             FollowerCommandsImguiSettings.ShowWindow.Value = true;
