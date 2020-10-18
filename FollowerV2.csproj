@@ -70,6 +70,7 @@
     <Compile Include="FollowerCommandSetting.cs" />
     <Compile Include="FollowerHelpers.cs" />
     <Compile Include="FollowerSkill.cs" />
+    <Compile Include="FollowerSkillEnums.cs" />
     <Compile Include="FollowerState.cs" />
     <Compile Include="FollowerV2.cs" />
     <Compile Include="FollowerV2Settings.cs" />
