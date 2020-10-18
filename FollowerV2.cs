@@ -1571,7 +1571,7 @@ namespace FollowerV2
                 }
                 if (follower.LastTimeWaypointUsedDateTime != emptyDateTime)
                 {
-                    ImGui.TextUnformatted(" W");
+                    ImGui.TextUnformatted("W");
                     ImGui.SameLine();
                 }
                 if (follower.LastTimeQuestItemPickupDateTime != emptyDateTime)
