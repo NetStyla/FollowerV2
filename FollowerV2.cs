@@ -1,28 +1,23 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using ExileCore;
 using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared;
-using ExileCore.Shared.Cache;
 using ExileCore.Shared.Enums;
 using SharpDX;
-using System.Net;
-using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using ExileCore.PoEMemory;
-using ExileCore.Shared.Helpers;
+using ExileCore.PoEMemory.Elements;
 using NumericsVector2 = System.Numerics.Vector2;
-using NumericsVector4 = System.Numerics.Vector4;
 using Newtonsoft.Json;
 using ImGuiNET;
 using TreeRoutine.TreeSharp;
-using Action = System.Action;
 
 namespace FollowerV2
 {
@@ -303,6 +298,7 @@ namespace FollowerV2
                     CreateUsingWaypointComposite(),
                     CreateUsingEntranceComposite(),
                     CreateCombatComposite(),
+                    CreateEnterHideoutComposite(),
 
                     // Following has the lowest priority
                     CreateFollowingComposite()
@@ -732,6 +728,69 @@ namespace FollowerV2
                     })
                 )
             );
+        }
+
+        // This Composite should always return Success. In case of failure we do NOT want to spam the chat
+        private Composite CreateEnterHideoutComposite()
+        {
+            LogMsgWithVerboseDebug($"{nameof(CreateEnterHideoutComposite)} called");
+            return new Decorator(
+                x => _followerState.CurrentAction == ActionsEnum.EnteringHideout &&
+                     !string.IsNullOrEmpty(_followerState.HideoutCharacterName),
+                new Sequence(
+                    new TreeRoutine.TreeSharp.Action(x =>
+                    {
+                        Input.KeyUp(Settings.FollowerModeSettings.MoveHotkey.Value);
+
+                        _followerState.CurrentAction = ActionsEnum.Nothing;
+
+                        Thread.Sleep(1000);
+
+                        LogMsgWithVerboseDebug("***** Should trigger entering hideout now!");
+
+                        string fullCommand = $"/hideout {_followerState.HideoutCharacterName}";
+
+                        List<Keys> keys = new List<Keys>() { Keys.Enter, Keys.OemQuestion, Keys.H, Keys.I, Keys.D, Keys.E, Keys.O, Keys.U, Keys.T, Keys.Space };
+                        List<Keys> nameAsKeys = StringToKeysList(_followerState.HideoutCharacterName);
+
+                        if (nameAsKeys == null) return RunStatus.Success;
+
+                        keys.AddRange(nameAsKeys);
+
+                        foreach (Keys key in keys)
+                        {
+                            pressKey(key);
+                        }
+
+                        // PoeChatElement chatBoxRoot = GameController.IngameState.IngameUi.ChatBoxRoot;
+                        PoeChatElement chatBoxRoot = (PoeChatElement)GameController.IngameState.IngameUi.ChatBox.Parent.Parent.Parent;
+                        if (chatBoxRoot?.Children != null && chatBoxRoot.Children.Any())
+                        {
+                            // If ChatBoxRoot is present we can check whether the text is correct
+                            bool textPresent = chatBoxRoot.Children
+                                .Where(e => !String.IsNullOrEmpty(e.Text))
+                                .Any(e => e.Text == fullCommand);
+
+                            pressKey(textPresent ? Keys.Enter : Keys.Escape);
+                        }
+                        else
+                        {
+                            // ChatBoxRoot is not present (no offset etc.) so just press enter
+                            pressKey(Keys.Enter);
+                        }
+
+                        return RunStatus.Success;
+                    })
+                )
+            );
+
+            void pressKey(Keys key)
+            {
+                Input.KeyDown(key);
+                Thread.Sleep(50);
+                Input.KeyUp(key);
+                Thread.Sleep(100);
+            }
         }
 
         private bool HoverToEntityAction(Entity entity)
@@ -1415,7 +1474,9 @@ namespace FollowerV2
             _followerState.LastTimeWaypointUsedDateTime = follower.LastTimeWaypointUsedDateTime;
             _followerState.LastTimeQuestItemPickupDateTime = follower.LastTimeQuestItemPickupDateTime;
             _followerState.LastTimeNormalItemPickupDateTime = follower.LastTimeNormalItemPickupDateTime;
-            _followerState.LastTimeNormalItemPickupDateTime = follower.LastTimeNormalItemPickupDateTime;
+            _followerState.LastTimeEnterHideoutUsedDateTime = follower.LastTimeEnterHideoutUsedDateTime;
+            _followerState.HideoutCharacterName = follower.HideoutCharacterName;
+
             _followerState.NormalItemId = follower.NormalItemId;
             _followerState.ShouldLevelUpGems = follower.ShouldLevelUpGems;
             _followerState.Aggressive = follower.Aggressive;
@@ -1436,6 +1497,12 @@ namespace FollowerV2
             {
                 _followerState.SavedLastTimeEntranceUsedDateTime = _followerState.LastTimeEntranceUsedDateTime;
                 _followerState.CurrentAction = ActionsEnum.UsingEntrance;
+            }
+
+            if (_followerState.LastTimeEnterHideoutUsedDateTime != _emptyDateTime && _followerState.LastTimeEnterHideoutUsedDateTime != _followerState.SavedLastTimeEnterHideoutUsedDateTime)
+            {
+                _followerState.SavedLastTimeEnterHideoutUsedDateTime = _followerState.LastTimeEnterHideoutUsedDateTime;
+                _followerState.CurrentAction = ActionsEnum.EnteringHideout;
             }
 
             // We want to replace values but we don't want to replace the object reference because of LastTimeUsed
@@ -1480,6 +1547,31 @@ namespace FollowerV2
 
             return null;
         }
+
+        /*
+        * This contains a lot of limitations. Do NOT use with anything except normal numbers or characters
+        * E.g. this will translate "hideout" to List<Keys> { Keys.H, Keys.I, Keys.D, Keys.E } etc.
+        */
+        private List<Keys> StringToKeysList(string str)
+        {
+            LogMsgWithVerboseDebug($"Inside StringToKeysList, trying to parse {str} to List<Keys>");
+
+            var keys = new List<Keys>();
+
+            if (string.IsNullOrEmpty(str)) return null;
+
+            foreach (var c in str.ToCharArray().Select(e => e.ToString()).ToList())
+            {
+                Keys key;
+                var parsed = Enum.TryParse(c.ToUpper(), out key);
+                if (!parsed) return null;
+
+                keys.Add(key);
+            }
+
+            return keys;
+        }
+
 
         private void DebugHoverToLeader()
         {
@@ -1584,6 +1676,11 @@ namespace FollowerV2
                     ImGui.TextUnformatted("I");
                     ImGui.SameLine();
                 }
+                if (follower.LastTimeEnterHideoutUsedDateTime != emptyDateTime)
+                {
+                    ImGui.TextUnformatted("H");
+                    ImGui.SameLine();
+                }
 
                 if (ImGui.Button($"E##{follower.FollowerName}")) follower.SetToUseEntrance();
 
@@ -1595,6 +1692,9 @@ namespace FollowerV2
 
                 ImGui.SameLine();
                 if (ImGui.Button($"QIPick##{follower.FollowerName}")) follower.SetPickupQuestItem();
+
+                ImGui.SameLine();
+                if (ImGui.Button($"H##{follower.FollowerName}")) Settings.LeaderModeSettings.FollowerCommandSetting.SetFollowersToEnterHideout(follower.FollowerName);
 
                 ImGui.SameLine();
                 if (ImGui.Button($"Del##{follower.FollowerName}")) Settings.LeaderModeSettings.FollowerCommandSetting.RemoveFollower(follower.FollowerName);
@@ -1609,6 +1709,7 @@ namespace FollowerV2
             }
             ImGui.Spacing();
 
+            string leaderName = Settings.LeaderModeSettings.LeaderNameToPropagate.Value;
             List<FollowerCommandsDataClass> followers = Settings.LeaderModeSettings.FollowerCommandSetting.FollowerCommandsDataSet.ToList();
 
             ImGui.SameLine();
@@ -1621,6 +1722,9 @@ namespace FollowerV2
             if (ImGui.Button("Waypoint##AllWaypoint")) followers.ForEach(f => f.SetToUseWaypoint());
             ImGui.SameLine();
             if (ImGui.Button("PickQuestItem##AllPickQuestItem")) followers.ForEach(f => f.SetPickupQuestItem());
+            ImGui.SameLine();
+            if (ImGui.Button("Leader's H##AllLeaderHideout"))
+                Settings.LeaderModeSettings.FollowerCommandSetting.SetFollowersToEnterHideout(leaderName);
             ImGui.Spacing();
 
             ImGui.Spacing();
