@@ -517,10 +517,10 @@ namespace FollowerV2
                         if (!hovered) return RunStatus.Failure;
 
                         Mouse.LeftClick(10);
-                        Thread.Sleep(2000);
+                        // Thread.Sleep(2000);
 
-                        // Wait additionally up to 2 seconds for IsLoading to pop up
-                        foreach (var i in Enumerable.Range(0, 20))
+                        // Wait additionally up to 4 seconds for IsLoading to pop up
+                        foreach (var i in Enumerable.Range(0, 40))
                         {
                             if (GameController.IsLoading) break;
                             Thread.Sleep(100);
@@ -639,10 +639,10 @@ namespace FollowerV2
                         if (!hovered) return RunStatus.Failure;
 
                         Mouse.LeftClick(10);
-                        Thread.Sleep(2000);
+                        // Thread.Sleep(2000);
 
-                        // Wait additionally up to 2 seconds for IsLoading to pop up
-                        foreach (var i in Enumerable.Range(0, 20))
+                        // Wait additionally up to 4 seconds for IsLoading to pop up
+                        foreach (var i in Enumerable.Range(0, 40))
                         {
                             if (GameController.IsLoading) break;
                             Thread.Sleep(100);
