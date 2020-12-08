@@ -48,16 +48,12 @@ namespace FollowerV2
             Task.Run(() => MainRequestingWork());
             Task.Run(() => MainCommandProtocolWork());
 
-            _nearbyPlayersUpdateCoroutine = new Coroutine(UpdateNearbyPlayersWork(), this, "Update nearby players");
-            _followerCoroutine = new Coroutine(MainFollowerWork(), this, "Follower coroutine");
+            _nearbyPlayersUpdateCoroutine = new Coroutine(UpdateNearbyPlayersWork(), this, nameof(_nearbyPlayersUpdateCoroutine));
+            _followerCoroutine = new Coroutine(MainFollowerWork(), this, nameof(_followerCoroutine));
 
             // Fire all coroutines
             Core.ParallelRunner.Run(_nearbyPlayersUpdateCoroutine);
             Core.ParallelRunner.Run(_followerCoroutine);
-
-            // And pause them to allow other plugins to run
-            _nearbyPlayersUpdateCoroutine.Pause();
-            _followerCoroutine.Pause();
 
             GameController.LeftPanel.WantUse(() => true);
 
@@ -202,7 +198,7 @@ namespace FollowerV2
 
             if (_nearbyPlayersUpdateCoroutine.IsDone)
             {
-                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
+                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.Name == nameof(_nearbyPlayersUpdateCoroutine));
 
                 if (firstOrDefault != null)
                     _nearbyPlayersUpdateCoroutine = firstOrDefault;
@@ -210,7 +206,7 @@ namespace FollowerV2
 
             if (_followerCoroutine.IsDone)
             {
-                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.OwnerName == nameof(this.Name));
+                var firstOrDefault = ExileCore.Core.ParallelRunner.Coroutines.FirstOrDefault(x => x.Name == nameof(_followerCoroutine));
 
                 if (firstOrDefault != null)
                     _followerCoroutine = firstOrDefault;
