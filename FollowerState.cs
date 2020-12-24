@@ -20,6 +20,7 @@ namespace FollowerV2
         public Vector3 SavedCurrentPos = Vector3.Zero;
 
         public bool ShouldLevelUpGems = false;
+        public bool ShouldFollowThroughEntrances = false;
         public DateTime LastTimeEntranceUsedDateTime { get; set; } =
             new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 

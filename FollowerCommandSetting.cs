@@ -52,6 +52,8 @@ namespace FollowerV2
 
         public bool ShouldLevelUpGems = false;
 
+        public bool ShouldFollowThroughEntrances = false;
+
         public FollowerCommandsDataClass()
         {
         }

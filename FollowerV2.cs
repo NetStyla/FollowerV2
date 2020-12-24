@@ -370,6 +370,24 @@ namespace FollowerV2
 
                             DoMoveAction();
                         }
+                        else if (_followerState.ShouldFollowThroughEntrances)
+                        {
+                            var entrance = entities.Where(e => e.Type == EntityType.AreaTransition || e.Type == EntityType.TownPortal)
+                                .OrderBy(o => FollowerHelpers.EntityDistance(o, GameController.Player)).ToList().FirstOrDefault();
+
+                            switch (entrance.Type)
+                            {
+                                case EntityType.AreaTransition:
+                                        _followerState.CurrentAction = ActionsEnum.UsingEntrance;
+                                    break;
+
+                                case EntityType.TownPortal:
+                                    _followerState.CurrentAction = ActionsEnum.UsingPortal;
+                                    break;
+
+                                default: break;
+                            }
+                        }
 
                         Thread.Sleep(Settings.FollowerModeSettings.MoveLogicCooldown.Value);
                     })
@@ -1387,6 +1405,7 @@ namespace FollowerV2
 
             _followerState.NormalItemId = follower.NormalItemId;
             _followerState.ShouldLevelUpGems = follower.ShouldLevelUpGems;
+            _followerState.ShouldFollowThroughEntrances = follower.ShouldFollowThroughEntrances;
             _followerState.Aggressive = follower.Aggressive;
 
             if (_followerState.LastTimePortalUsedDateTime != _emptyDateTime &&

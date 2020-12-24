@@ -365,6 +365,11 @@ namespace FollowerV2
                                     follower.ShouldLevelUpGems = ImGuiExtension.Checkbox($"Level up gems##{imguiId}",
                                         follower.ShouldLevelUpGems);
 
+                                    ImGui.Spacing();
+                                    ImGui.Spacing();
+                                    follower.ShouldFollowThroughEntrances = ImGuiExtension.Checkbox($"Should follow through entrances##{imguiId}",
+                                        follower.ShouldFollowThroughEntrances);
+
                                     ImGui.TextDisabled("****** Skill settings ******");
                                     if (ImGui.Button($"Add new skill##{follower.FollowerName}"))
                                         follower.AddNewEmptySkill();
