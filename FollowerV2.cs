@@ -124,7 +124,7 @@ namespace FollowerV2
             if (Input.GetKeyState(Keys.ControlKey) && Settings.Profiles.Value == ProfilesEnum.Leader &&
                 Settings.FollowerCommandsImguiSettings.ShowWindow.Value) RenderAdditionalFollowerCommandImguiWindow();
 
-            WriteLeftPanelTexts();
+            if (Settings.DrawStatus.Value) WriteLeftPanelTexts();
         }
 
         private void WriteLeftPanelTexts()

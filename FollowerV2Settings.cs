@@ -117,6 +117,7 @@ namespace FollowerV2
 
             ImGui.Spacing();
             Profiles.Value = ImGuiExtension.ComboBox("Profiles", Profiles.Value, Profiles.Values);
+            DrawStatus.Value = ImGuiExtension.Checkbox("Draw Status", DrawStatus);
             ImGui.Spacing();
             ImGui.Spacing();
             RandomClickOffset.Value = ImGuiExtension.IntSlider("Random click offset", RandomClickOffset);
@@ -487,10 +488,10 @@ namespace FollowerV2
             },
             Value = ProfilesEnum.Disable
         };
-
+        
+        [Menu("Draw Status", "", 3, 2000)] public ToggleNode DrawStatus { get; set; } = new ToggleNode(true);
         public RangeNode<int> RandomClickOffset { get; set; } = new RangeNode<int>(10, 5, 100);
         public ButtonNode ResetToDefaultsButton { get; set; } = new ButtonNode();
-
         public ListNode NearbyPlayers { get; set; } = new ListNode {Values = new List<string>(), Value = ""};
 
         #endregion
