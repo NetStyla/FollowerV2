@@ -11,11 +11,13 @@ namespace FollowerV2
         public ActionsEnum CurrentAction = ActionsEnum.Nothing;
 
         public int EntranceLogicIterationCount;
+        public int LocalEntranceLogicIterationCount;
 
         public int NormalItemId = 0;
 
         public int PortalLogicIterationCount;
         public int WaypointLogicIterationCount;
+        public int TeleportingLogicIterationCount;
         public uint SavedCurrentAreaHash;
         public Vector3 SavedCurrentPos = Vector3.Zero;
 
@@ -35,10 +37,14 @@ namespace FollowerV2
 
         public DateTime LastTimeWaypointUsedDateTime { get; set; } =
             new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        public DateTime LastTimeTeleportedDateTime { get; set; } =
+            new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         public DateTime SavedLastTimeWaypointUsedDateTime { get; set; } =
             new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        public DateTime SavedLastTimeTeleportedDateTime { get; set; } =
+            new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         public DateTime LastTimeQuestItemPickupDateTime { get; set; } =
             new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -71,6 +77,7 @@ namespace FollowerV2
             SavedCurrentAreaHash = 0;
             PortalLogicIterationCount = 0;
             WaypointLogicIterationCount = 0;
+            TeleportingLogicIterationCount = 0;
         }
     }
 
@@ -78,10 +85,12 @@ namespace FollowerV2
     {
         Nothing,
         UsingEntrance,
+        UsingLocalEntrance,
         UsingPortal,
         UsingWaypoint,
         PickingQuestItem,
         PickingNormalItem,
-        EnteringHideout
+        EnteringHideout,
+        Teleporting
     }
 }

@@ -76,6 +76,9 @@ namespace FollowerV2
         public DateTime LastTimeWaypointUsedDateTime { get; set; } =
             new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        public DateTime LastTimeTeleportedDateTime { get; set; } =
+            new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         public DateTime LastTimeQuestItemPickupDateTime { get; set; } =
             new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -107,6 +110,14 @@ namespace FollowerV2
 
             LastTimeWaypointUsedDateTime = DateTime.UtcNow;
             Task.Delay(_taskDelayMs).ContinueWith(t => LastTimeWaypointUsedDateTime = _emptyDateTime);
+        }
+
+        public void SetToTeleporting()
+        {
+            if (LastTimeTeleportedDateTime != _emptyDateTime) return;
+
+            LastTimeTeleportedDateTime = DateTime.UtcNow;
+            Task.Delay(_taskDelayMs).ContinueWith(t => LastTimeTeleportedDateTime = _emptyDateTime);
         }
 
         public void SetPickupQuestItem()

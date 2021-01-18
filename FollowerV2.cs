@@ -38,6 +38,7 @@ namespace FollowerV2
 
         private int _networkRequestStatusRetries;
 
+        private readonly int partyElementOffset = 0x3A0;
         public Composite Tree { get; set; }
 
         public override bool Initialise()
@@ -325,11 +326,13 @@ namespace FollowerV2
             return new Decorator(x => ShouldWork() && BtCanTick() && IsPlayerAlive(),
                 new PrioritySelector(
                     CreateLevelUpGemsComposite(),
+                    CreateTeleportingComposite(),
                     CreatePickingTargetedItemComposite(),
                     CreatePickingQuestItemComposite(),
                     CreateUsingPortalComposite(),
                     CreateUsingWaypointComposite(),
                     CreateUsingEntranceComposite(),
+                    // CreateUsingLocalEntranceComposite(),
                     CreateCombatComposite(),
                     CreateEnterHideoutComposite(),
 
@@ -342,6 +345,9 @@ namespace FollowerV2
         private Composite CreateFollowingComposite()
         {
             LogMsgWithVerboseDebug($"{nameof(CreateFollowingComposite)} called");
+
+            var prevLeaderPos = new Vector3();
+            var entranceCount = 0;
 
             return new Decorator(x => ShouldFollowLeader(),
                 new Sequence(
@@ -368,25 +374,67 @@ namespace FollowerV2
                         {
                             HoverTo(leaderPlayer);
 
-                            DoMoveAction();
-                        }
-                        else if (_followerState.ShouldFollowThroughEntrances)
-                        {
-                            var entrance = entities.Where(e => e.Type == EntityType.AreaTransition || e.Type == EntityType.TownPortal)
-                                .OrderBy(o => FollowerHelpers.EntityDistance(o, GameController.Player)).ToList().FirstOrDefault();
+                            var leaderPos = leaderPlayer.Pos;
+                            var deltaPos = prevLeaderPos - leaderPos;
 
-                            switch (entrance.Type)
+                            if (_followerState.ShouldFollowThroughEntrances && (Math.Abs(deltaPos.X) > 1000 || Math.Abs(deltaPos.Y) > 1000))
                             {
-                                case EntityType.AreaTransition:
-                                        _followerState.CurrentAction = ActionsEnum.UsingEntrance;
-                                    break;
+                                var leaderPartyElementName = GameController.IngameState.IngameUi.PartyElement.FindChildRecursive(Settings.FollowerModeSettings.LeaderName.Value);
+                                if (leaderPartyElementName != null)
+                                {
+                                    var leaderPartyElement = leaderPartyElementName.Parent;
+                                    if (leaderPartyElement != null)
+                                    {
+                                        var leaderPartyElementTpButton = leaderPartyElement.GetChildAtIndex(3);
+                                        if (leaderPartyElementTpButton == null)
+                                        {
+                                            var p = leaderPartyElementTpButton.GetClientRect().Center + GameController.Window.GetWindowRectangle().TopLeft;
+                                            Mouse.SetCursorPosAndLeftClick(p, 10);
 
-                                case EntityType.TownPortal:
-                                    _followerState.CurrentAction = ActionsEnum.UsingPortal;
-                                    break;
+                                            // Wait up to 1 second
+                                            foreach (var i in Enumerable.Range(0, 10))
+                                            {
+                                                if (GameController.IngameState.IngameUi.InstanceManagerPanel.IsVisible) break;
+                                                Thread.Sleep(100);
+                                            }
 
-                                default: break;
+                                            var instanseManagerPanel = GameController.IngameState.IngameUi.InstanceManagerPanel;
+
+                                            if (instanseManagerPanel.IsVisible)
+                                            {
+                                                var instanseManagerPanelChild = instanseManagerPanel.GetChildAtIndex(0);
+                                                if (instanseManagerPanelChild == null)
+                                                {
+                                                    var okButton = instanseManagerPanelChild.GetChildAtIndex(2);
+                                                    if (okButton == null)
+                                                    {
+                                                        p = okButton.GetClientRect().Center + GameController.Window.GetWindowRectangle().TopLeft;
+                                                        Mouse.SetCursorPosAndLeftClick(p, 10);
+                                                    }
+                                                }
+                                            }
+
+                                            if (GameController.IsLoading || HasAreaBeenChangedByAreaHash())
+                                            {
+                                                // We have changed the area
+                                                _followerState.CurrentAction = ActionsEnum.Nothing;
+                                                _followerState.ResetAreaChangingValues();
+                                            }
+                                        }
+                                    }
+                                }
                             }
+                            else
+                                DoMoveAction();
+
+                            prevLeaderPos = leaderPos;
+                            entranceCount = 0;
+                        }
+                        else if (_followerState.ShouldFollowThroughEntrances && entranceCount < 4)
+                        {
+                            entranceCount++;
+
+                            _followerState.CurrentAction = ActionsEnum.Teleporting;
                         }
 
                         Thread.Sleep(Settings.FollowerModeSettings.MoveLogicCooldown.Value);
@@ -498,6 +546,7 @@ namespace FollowerV2
         private Composite CreateUsingPortalComposite()
         {
             LogMsgWithVerboseDebug($"{nameof(CreateUsingPortalComposite)} called");
+
             return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingPortal && IsFpsAboveThreshold(),
                 new Sequence(
                     new Action(x =>
@@ -556,6 +605,7 @@ namespace FollowerV2
         private Composite CreateUsingWaypointComposite()
         {
             LogMsgWithVerboseDebug($"{nameof(CreateUsingWaypointComposite)} called");
+
             return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingWaypoint && IsFpsAboveThreshold(),
                 new Sequence(
                     new TreeRoutine.TreeSharp.Action(x =>
@@ -616,8 +666,8 @@ namespace FollowerV2
         private Composite CreateUsingEntranceComposite()
         {
             LogMsgWithVerboseDebug($"{nameof(CreateUsingEntranceComposite)} called");
-            return new Decorator(
-                x => _followerState.CurrentAction == ActionsEnum.UsingEntrance && IsFpsAboveThreshold(),
+
+            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingEntrance && IsFpsAboveThreshold(),
                 new Sequence(
                     new Action(x =>
                     {
@@ -675,6 +725,39 @@ namespace FollowerV2
                 )
             );
         }
+
+        /*
+        private Composite CreateUsingLocalEntranceComposite()
+        {
+            LogMsgWithVerboseDebug($"{nameof(CreateUsingLocalEntranceComposite)} called");
+
+            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.UsingLocalEntrance && IsFpsAboveThreshold(),
+                new Sequence(
+                    new Action(x =>
+                    {
+                        LogMessage("LocalEnrance");
+
+                        Input.KeyUp(Settings.FollowerModeSettings.MoveHotkey.Value);
+
+                        _followerState.LocalEntranceLogicIterationCount++;
+
+                        // Allow only 1 teleporting logic iterations
+                        if (_followerState.LocalEntranceLogicIterationCount > 3)
+                        {
+                            _followerState.CurrentAction = ActionsEnum.Nothing;
+                            _followerState.ResetAreaChangingValues();
+
+                            return TreeRoutine.TreeSharp.RunStatus.Failure;
+                        }
+
+                        
+
+                        return RunStatus.Success;
+                    })
+                )
+            );
+        }
+        */
 
         private Composite CreateCombatComposite()
         {
@@ -776,6 +859,80 @@ namespace FollowerV2
                             Thread.Sleep(200);
                             Mouse.LeftClick(10);
                             Thread.Sleep(200);
+                        }
+
+                        return RunStatus.Success;
+                    })
+                )
+            );
+        }
+
+        private Composite CreateTeleportingComposite()
+        {
+            LogMsgWithVerboseDebug($"{nameof(CreateTeleportingComposite)} called");
+
+            return new Decorator(x => _followerState.CurrentAction == ActionsEnum.Teleporting && IsFpsAboveThreshold(),
+                new Sequence(
+                    new Action(x =>
+                    {
+                        LogMessage("Teleporting");
+
+                        Input.KeyUp(Settings.FollowerModeSettings.MoveHotkey.Value);
+                        _followerState.TeleportingLogicIterationCount++;
+
+                        // Allow only 1 teleporting logic iterations
+                        if (_followerState.TeleportingLogicIterationCount > 1)
+                        {
+                            _followerState.CurrentAction = ActionsEnum.Nothing;
+                            _followerState.ResetAreaChangingValues();
+
+                            return TreeRoutine.TreeSharp.RunStatus.Failure;
+                        }
+
+                        var partyElement = GameController.IngameState.IngameUi.ReadObjectAt<Element>(partyElementOffset);
+
+                        var leaderPartyElementName = partyElement.FindChildRecursive(Settings.FollowerModeSettings.LeaderName.Value);
+                        if (leaderPartyElementName == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
+                        
+                        var leaderPartyElement = leaderPartyElementName.Parent;
+                        if (leaderPartyElement == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
+
+                        var leaderPartyElementTpButton = leaderPartyElement.GetChildAtIndex(3);
+
+                        foreach (var child in leaderPartyElement.Children)
+                            LogMessage($"{child.Position}");
+
+                        if (leaderPartyElementTpButton == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
+
+                        var p = leaderPartyElementTpButton.GetClientRect().Center + GameController.Window.GetWindowRectangle().TopLeft;
+                        Mouse.SetCursorPosAndLeftClick(p, 10);
+
+                        var instanseManagerPanel = GameController.IngameState.IngameUi.GetChildAtIndex(132);
+                        if (instanseManagerPanel == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
+
+                        // Wait up to 1 second
+                        foreach (var i in Enumerable.Range(0, 10))
+                        {
+                            if (instanseManagerPanel.IsVisible)
+                            {
+                                var instanseManagerPanelChild = instanseManagerPanel.GetChildAtIndex(3);
+                                if (instanseManagerPanelChild == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
+
+                                var okButton = instanseManagerPanelChild.GetChildAtIndex(2);
+                                if (okButton == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
+
+                                p = okButton.GetClientRect().Center + GameController.Window.GetWindowRectangle().TopLeft;
+                                Mouse.SetCursorPosAndLeftClick(p, 10);
+                            }
+
+                            Thread.Sleep(100);
+                        }
+
+                        if (GameController.IsLoading || HasAreaBeenChangedByAreaHash())
+                        {
+                            // We have changed the area
+                            _followerState.CurrentAction = ActionsEnum.Nothing;
+                            _followerState.ResetAreaChangingValues();
                         }
 
                         return RunStatus.Success;
@@ -1378,6 +1535,21 @@ namespace FollowerV2
             return null;
         }
 
+        private List<Entity> GetEntrancesByTransitionTypeAndSortByDistance(AreaTransitionType transitionType, Entity entity)
+        {
+            try
+            {
+                return GameController.EntityListWrapper.ValidEntitiesByType[EntityType.AreaTransition].Where(x => x.GetComponent<AreaTransition>().TransitionType == transitionType)
+                    .OrderBy(o => FollowerHelpers.EntityDistance(o, entity))
+                    .ToList();
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
         private void ProcessNetworkActivityResponse(NetworkActivityObject obj)
         {
             LogMsgWithVerboseDebug("ProcessNetworkActivityResponse called");
@@ -1398,6 +1570,7 @@ namespace FollowerV2
             _followerState.LastTimeEntranceUsedDateTime = follower.LastTimeEntranceUsedDateTime;
             _followerState.LastTimePortalUsedDateTime = follower.LastTimePortalUsedDateTime;
             _followerState.LastTimeWaypointUsedDateTime = follower.LastTimeWaypointUsedDateTime;
+            _followerState.LastTimeTeleportedDateTime = follower.LastTimeTeleportedDateTime;
             _followerState.LastTimeQuestItemPickupDateTime = follower.LastTimeQuestItemPickupDateTime;
             _followerState.LastTimeNormalItemPickupDateTime = follower.LastTimeNormalItemPickupDateTime;
             _followerState.LastTimeEnterHideoutUsedDateTime = follower.LastTimeEnterHideoutUsedDateTime;
@@ -1420,6 +1593,13 @@ namespace FollowerV2
             {
                 _followerState.SavedLastTimeWaypointUsedDateTime = _followerState.LastTimeWaypointUsedDateTime;
                 _followerState.CurrentAction = ActionsEnum.UsingWaypoint;
+            }
+
+            if (_followerState.LastTimeTeleportedDateTime != _emptyDateTime &&
+                _followerState.LastTimeTeleportedDateTime != _followerState.SavedLastTimeTeleportedDateTime)
+            {
+                _followerState.SavedLastTimeTeleportedDateTime = _followerState.LastTimeTeleportedDateTime;
+                _followerState.CurrentAction = ActionsEnum.Teleporting;
             }
 
             if (_followerState.LastTimeEntranceUsedDateTime != _emptyDateTime &&
@@ -1593,6 +1773,11 @@ namespace FollowerV2
                     ImGui.TextUnformatted("P");
                     ImGui.SameLine();
                 }
+                if (follower.LastTimeTeleportedDateTime != emptyDateTime)
+                {
+                    ImGui.TextUnformatted("T");
+                    ImGui.SameLine();
+                }
                 if (follower.LastTimeWaypointUsedDateTime != emptyDateTime)
                 {
                     ImGui.TextUnformatted("W");
@@ -1623,6 +1808,9 @@ namespace FollowerV2
 
                 ImGui.SameLine();
                 if (ImGui.Button($"W##{follower.FollowerName}")) follower.SetToUseWaypoint();
+
+                ImGui.SameLine();
+                if (ImGui.Button($"T##{follower.FollowerName}")) follower.SetToTeleporting();
 
                 ImGui.SameLine();
                 if (ImGui.Button($"QIPick##{follower.FollowerName}")) follower.SetPickupQuestItem();
@@ -1659,6 +1847,8 @@ namespace FollowerV2
             if (ImGui.Button("Portal##AllPortal")) followers.ForEach(f => f.SetToUsePortal());
             ImGui.SameLine();
             if (ImGui.Button("Waypoint##AllWaypoint")) followers.ForEach(f => f.SetToUseWaypoint());
+            ImGui.SameLine();
+            if (ImGui.Button("Teleport##AllTeleport")) followers.ForEach(f => f.SetToTeleporting());
             ImGui.SameLine();
             if (ImGui.Button("PickQuestItem##AllPickQuestItem")) followers.ForEach(f => f.SetPickupQuestItem());
             ImGui.SameLine();
@@ -1715,12 +1905,14 @@ namespace FollowerV2
             return gemsToLevelUp;
         }
 
+        [Obsolete]
         private bool IsFpsAboveThreshold()
         {
             int currentFps = (int) GameController.IngameState.CurFps;
             int threshold = Settings.FollowerModeSettings.MinimumFpsThreshold.Value;
 
-            return currentFps >= threshold;
+            // return currentFps >= threshold;
+            return true; //FPS is 0 after 3.13.0 update
         }
 
         private bool ShouldAttackMonsters()
