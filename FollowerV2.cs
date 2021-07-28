@@ -39,11 +39,25 @@ namespace FollowerV2
         private int _networkRequestStatusRetries;
 
         private readonly int partyElementOffset = 0x3A0;
+
+        private List<Element> overlayPanels = new List<Element>();
+
         public Composite Tree { get; set; }
 
         public override bool Initialise()
         {
             Tree = CreateTree();
+
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x588)); // pantheonPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x598)); // worldPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x570)); // charPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x558)); // socialPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x578)); // optionsPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x590)); // eventsPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x580)); // challengesPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x5A0)); // mtxPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x528)); // shopPanelOffset
+            overlayPanels.Add(GameController.IngameState.IngameUi.ReadObjectAt<Element>(0x560)); // atlasPanelOffset
 
             // Start network and server routines in a separate threads to not block if PoeHUD is in not focused
             Task.Run(() => MainRequestingWork());
@@ -582,8 +596,8 @@ namespace FollowerV2
                         Mouse.LeftClick(10);
                         // Thread.Sleep(2000);
 
-                        // Wait additionally up to 4 seconds for IsLoading to pop up
-                        foreach (var i in Enumerable.Range(0, 40))
+                        // Wait additionally up to 2 seconds for IsLoading to pop up
+                        foreach (var i in Enumerable.Range(0, 20))
                         {
                             if (GameController.IsLoading) break;
                             Thread.Sleep(100);
@@ -705,12 +719,14 @@ namespace FollowerV2
                         Mouse.LeftClick(10);
                         // Thread.Sleep(2000);
 
-                        // Wait additionally up to 4 seconds for IsLoading to pop up
-                        foreach (var i in Enumerable.Range(0, 40))
-                        {
-                            if (GameController.IsLoading) break;
-                            Thread.Sleep(100);
-                        }
+                        if (entranceEntity.GetComponent<AreaTransition>().TransitionType != AreaTransitionType.Local)
+                            // Wait additionally up to 4 seconds for IsLoading to pop up
+                            foreach (var i in Enumerable.Range(0, 40))
+                            {
+                                if (GameController.IsLoading) break;
+                                LogMessage("Waiting isLoading");
+                                Thread.Sleep(100);
+                            }
 
                         if (GameController.IsLoading || HasAreaBeenChangedByAreaHash() ||
                             HasAreaBeenChangedBySavedPos())
@@ -878,6 +894,10 @@ namespace FollowerV2
                         LogMessage("Teleporting");
 
                         Input.KeyUp(Settings.FollowerModeSettings.MoveHotkey.Value);
+
+                        foreach (var panel in overlayPanels)
+                            if (panel.IsVisible) PressKey(Keys.Escape);
+
                         _followerState.TeleportingLogicIterationCount++;
 
                         // Allow only 1 teleporting logic iterations
@@ -898,10 +918,6 @@ namespace FollowerV2
                         if (leaderPartyElement == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
 
                         var leaderPartyElementTpButton = leaderPartyElement.GetChildAtIndex(3);
-
-                        foreach (var child in leaderPartyElement.Children)
-                            LogMessage($"{child.Position}");
-
                         if (leaderPartyElementTpButton == null) return TreeRoutine.TreeSharp.RunStatus.Failure;
 
                         var p = leaderPartyElementTpButton.GetClientRect().Center + GameController.Window.GetWindowRectangle().TopLeft;
@@ -972,7 +988,7 @@ namespace FollowerV2
 
                         keys.AddRange(nameAsKeys);
 
-                        foreach (Keys key in keys) pressKey(key);
+                        foreach (Keys key in keys) PressKey(key);
 
                         // PoeChatElement chatBoxRoot = GameController.IngameState.IngameUi.ChatBoxRoot;
                         PoeChatElement chatBoxRoot = (PoeChatElement)GameController.IngameState.IngameUi.ChatBox.Parent.Parent.Parent;
@@ -983,26 +999,26 @@ namespace FollowerV2
                                 .Where(e => !string.IsNullOrEmpty(e.Text))
                                 .Any(e => e.Text == fullCommand);
 
-                            pressKey(textPresent ? Keys.Enter : Keys.Escape);
+                            PressKey(textPresent ? Keys.Enter : Keys.Escape);
                         }
                         else
                         {
                             // ChatBoxRoot is not present (no offset etc.) so just press enter
-                            pressKey(Keys.Enter);
+                            PressKey(Keys.Enter);
                         }
 
                         return RunStatus.Success;
                     })
                 )
             );
+        }
 
-            void pressKey(Keys key)
-            {
-                Input.KeyDown(key);
-                Thread.Sleep(50);
-                Input.KeyUp(key);
-                Thread.Sleep(100);
-            }
+        private void PressKey(Keys key)
+        {
+            Input.KeyDown(key);
+            Thread.Sleep(50);
+            Input.KeyUp(key);
+            Thread.Sleep(100);
         }
 
         private bool HoverToEntityAction(Entity entity)
@@ -1894,7 +1910,11 @@ namespace FollowerV2
         {
             List<Element> gemsToLevelUp = new List<Element>();
 
-            var possibleGemsToLvlUpElements = GameController.IngameState.IngameUi?.GemLvlUpPanel?.GemsToLvlUp;
+            // var possibleGemsToLvlUpElements = GameController.IngameState.IngameUi?.GemLvlUpPanel?.GemsToLvlUp;
+            var possibleGemsToLvlUpElements = GameController.IngameState.IngameUi?.GetChildAtIndex(4).GetChildAtIndex(1).GetChildAtIndex(0)?.Children;
+
+            foreach (var some in possibleGemsToLvlUpElements)
+                LogMsgWithVerboseDebug($"Gems to level up:{some}");
 
             if (possibleGemsToLvlUpElements != null && possibleGemsToLvlUpElements.Any())
                 foreach (Element possibleGemsToLvlUpElement in possibleGemsToLvlUpElements)
@@ -1905,14 +1925,12 @@ namespace FollowerV2
             return gemsToLevelUp;
         }
 
-        [Obsolete]
         private bool IsFpsAboveThreshold()
         {
             int currentFps = (int) GameController.IngameState.CurFps;
             int threshold = Settings.FollowerModeSettings.MinimumFpsThreshold.Value;
 
-            // return currentFps >= threshold;
-            return true; //FPS is 0 after 3.13.0 update
+            return currentFps >= threshold;
         }
 
         private bool ShouldAttackMonsters()
