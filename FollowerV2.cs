@@ -1930,7 +1930,8 @@ namespace FollowerV2
             // int currentFps = (int) GameController.IngameState.CurFps;
             // int threshold = Settings.FollowerModeSettings.MinimumFpsThreshold.Value;
 
-            return currentFps >= threshold;
+            // return currentFps >= threshold;
+            return true; //FPS is 0 after 3.13.0 update
         }
 
         private bool ShouldAttackMonsters()
