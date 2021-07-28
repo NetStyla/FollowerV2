@@ -1927,8 +1927,8 @@ namespace FollowerV2
 
         private bool IsFpsAboveThreshold()
         {
-            int currentFps = (int) GameController.IngameState.CurFps;
-            int threshold = Settings.FollowerModeSettings.MinimumFpsThreshold.Value;
+            // int currentFps = (int) GameController.IngameState.CurFps;
+            // int threshold = Settings.FollowerModeSettings.MinimumFpsThreshold.Value;
 
             return currentFps >= threshold;
         }
