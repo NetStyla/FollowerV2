@@ -38,7 +38,7 @@ namespace FollowerV2
 
         private int _networkRequestStatusRetries;
 
-        private readonly int partyElementOffset = 0x3A0;
+        private readonly int partyElementOffset = 0x3E0; //3.17 offsets
 
         private List<Element> overlayPanels = new List<Element>();
 
@@ -989,24 +989,24 @@ namespace FollowerV2
                         keys.AddRange(nameAsKeys);
 
                         foreach (Keys key in keys) PressKey(key);
-
+                        //somehow all of this code was causing problems to press enter, i think some chatbox has been changed(atleast now works)
                         // PoeChatElement chatBoxRoot = GameController.IngameState.IngameUi.ChatBoxRoot;
-                        PoeChatElement chatBoxRoot = (PoeChatElement)GameController.IngameState.IngameUi.ChatBox.Parent.Parent.Parent;
-                        if (chatBoxRoot?.Children != null && chatBoxRoot.Children.Any())
-                        {
+                       // PoeChatElement chatBoxRoot = (PoeChatElement)GameController.IngameState.IngameUi.ChatBox.Parent.Parent.Parent;
+                       // if (chatBoxRoot?.Children != null && chatBoxRoot.Children.Any())
+                      //  {
                             // If ChatBoxRoot is present we can check whether the text is correct
-                            bool textPresent = chatBoxRoot.Children
-                                .Where(e => !string.IsNullOrEmpty(e.Text))
-                                .Any(e => e.Text == fullCommand);
+                        //    bool textPresent = chatBoxRoot.Children
+                       //         .Where(e => !string.IsNullOrEmpty(e.Text))
+                        //        .Any(e => e.Text == fullCommand);
 
-                            PressKey(textPresent ? Keys.Enter : Keys.Escape);
-                        }
-                        else
-                        {
-                            // ChatBoxRoot is not present (no offset etc.) so just press enter
-                            PressKey(Keys.Enter);
-                        }
-
+                       //     PressKey(textPresent ? Keys.Enter : Keys.Escape);
+                     //   }
+                       // else
+                     //   {
+                      //     // ChatBoxRoot is not present (no offset etc.) so just press enter
+                       //     PressKey(Keys.Enter);
+                      //  }
+                        PressKey(Keys.Enter);
                         return RunStatus.Success;
                     })
                 )
