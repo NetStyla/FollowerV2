@@ -597,10 +597,10 @@ namespace FollowerV2
                         // Thread.Sleep(2000);
 
                         // Wait additionally up to 2 seconds for IsLoading to pop up
-                        foreach (var i in Enumerable.Range(0, 20))
+                        foreach (var i in Enumerable.Range(0, 50))
                         {
                             if (GameController.IsLoading) break;
-                            Thread.Sleep(100);
+                            Thread.Sleep(150);
                         }
 
                         if (GameController.IsLoading || HasAreaBeenChangedByAreaHash())
